@@ -1,37 +1,107 @@
-import Link from "next/link";
+"use client";
+
+import {
+  Scanner,
+  useDevices,
+  type IDetectedBarcode,
+  outline,
+  boundingBox,
+  centerText,
+} from "@yudiel/react-qr-scanner";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export default function HomePage() {
+  const [deviceId, setDeviceId] = useState<string | undefined>(undefined);
+  const [tracker, setTracker] = useState<string | undefined>("boundingBox");
+  const [rawValue, setRawValue] = useState<string>("");
+
+  const [pause, setPause] = useState(true);
+
+  const devices = useDevices();
+
+  function getTracker() {
+    switch (tracker) {
+      case "outline":
+        return outline;
+      case "boundingBox":
+        return boundingBox;
+      case "centerText":
+        return centerText;
+      default:
+        return undefined;
+    }
+  }
+
+  const isCameraSelected = useRef(false);
+
+  useEffect(() => {
+    if (isCameraSelected.current) return;
+    if (
+      !deviceId &&
+      devices.length > 0 &&
+      !isCameraSelected.current &&
+      devices[0]
+    ) {
+      setDeviceId(devices[0].deviceId);
+      isCameraSelected.current = true;
+    }
+  }, [deviceId, devices]);
+
+  const handleScan = useCallback((detectedCodes: IDetectedBarcode[]) => {
+    setRawValue(detectedCodes[0]?.rawValue ?? "");
+  }, []);
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
-      <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
-        <h1 className="text-5xl font-extrabold tracking-tight text-white sm:text-[5rem]">
-          Create <span className="text-[hsl(280,100%,70%)]">T3</span> App
-        </h1>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-8">
-          <Link
-            className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 text-white hover:bg-white/20"
-            href="https://create.t3.gg/en/usage/first-steps"
-            target="_blank"
-          >
-            <h3 className="text-2xl font-bold">First Steps →</h3>
-            <div className="text-lg">
-              Just the basics - Everything you need to know to set up your
-              database and authentication.
-            </div>
-          </Link>
-          <Link
-            className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 text-white hover:bg-white/20"
-            href="https://create.t3.gg/en/introduction"
-            target="_blank"
-          >
-            <h3 className="text-2xl font-bold">Documentation →</h3>
-            <div className="text-lg">
-              Learn more about Create T3 App, the libraries it uses, and how to
-              deploy it.
-            </div>
-          </Link>
-        </div>
+    <main className="flex h-screen w-screen flex-col items-center justify-center gap-2">
+      <button
+        className="rounded-md bg-blue-300 p-2"
+        onClick={() => setPause((val) => !val)}
+      >
+        {pause ? "Play" : "Pause"}
+      </button>
+      <select onChange={(e) => setDeviceId(e.target.value)} value={deviceId}>
+        <option value={undefined}>Select a device</option>
+        {devices.map((device, index) => (
+          <option key={index} value={device.deviceId}>
+            {device.label}
+          </option>
+        ))}
+      </select>
+
+      <select onChange={(e) => setTracker(e.target.value)}>
+        <option value="centerText">Center Text</option>
+        <option value="outline">Outline</option>
+        <option value="boundingBox">Bounding Box</option>
+        <option value={undefined}>No Tracker</option>
+      </select>
+      <div className="aspect-square w-80 overflow-hidden rounded-xl">
+        <Scanner
+          formats={["qr_code"]}
+          constraints={{
+            deviceId: deviceId,
+          }}
+          onScan={(detectedCodes) => {
+            handleScan(detectedCodes);
+          }}
+          onError={(error) => {
+            console.log(`onError: ${error as string}'`);
+          }}
+          components={{
+            finder: false,
+            tracker: getTracker(),
+          }}
+          sound={true}
+          allowMultiple={true}
+          scanDelay={2000}
+          paused={pause}
+        />
       </div>
+
+      <p className="text-center">
+        Scanned Barcode Raw Value:
+        <br />
+        {rawValue}
+      </p>
     </main>
   );
 }
